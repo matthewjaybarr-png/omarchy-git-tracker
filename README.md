@@ -82,12 +82,17 @@ Open the widget's settings in the bar editor.
   needs a password fails with a hint instead of hanging.
 - Branch names are validated before a merge, and commands run as argument lists, never
   through a shell. Only `https://` links are opened in the browser.
+- Scans never run programs named by a repo's own config: fsmonitor, filter drivers, signature
+  checks and hooks are switched off, and submodules aren't entered. A background fetch skips
+  repos whose own config sets credential helpers, proxies, URL rewrites or transport programs.
+- A merge checks that the branch you confirmed is still checked out before it runs.
 - No force push, no reset, no rebase. The most destructive button is Abort merge.
 
 ## Limits
 
 - A repo nested inside another repo isn't listed.
 - The scan stops at 400 repos.
+- Changes inside submodules aren't counted.
 - Commit always stages everything. To stage part of a change, use lazygit (`g`).
 
 ## Development

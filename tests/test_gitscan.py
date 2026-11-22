@@ -53,6 +53,41 @@ class Scan(unittest.TestCase):
             self.assertEqual(r["url"], "https://github.com/me/proj")
             self.assertTrue(r["hasRemote"])
 
+    def test_repo_config_runs_nothing(self):
+        """A copied-in repo's own config, filters and hooks must not run during a scan or fetch."""
+        with tempfile.TemporaryDirectory() as d:
+            repo, upstream, mark = os.path.join(d, "proj"), os.path.join(d, "up"), os.path.join(d, "RAN")
+            run = lambda *a: subprocess.run(["git", "-C", repo, *a], check=True, capture_output=True)
+            subprocess.run(["git", "init", "-q", "--bare", upstream], check=True)
+            os.makedirs(repo)
+            run("init", "-q", "-b", "main")
+            with open(os.path.join(repo, "f"), "w") as f:
+                f.write("a\n")
+            run("add", "f")
+            run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "first")
+            run("remote", "add", "origin", upstream)
+            run("push", "-q", "origin", "main")
+            evil = "touch %s; false" % mark
+            run("config", "core.fsmonitor", evil)
+            run("config", "log.showSignature", "true")
+            run("config", "gpg.program", evil)
+            run("config", "filter.x.clean", evil)
+            hook = os.path.join(repo, ".git", "hooks", "reference-transaction")
+            with open(hook, "w") as f:
+                f.write("#!/bin/sh\n%s\n" % evil)
+            os.chmod(hook, 0o755)
+            with open(os.path.join(repo, ".gitattributes"), "w") as f:
+                f.write("f filter=x\n")
+            with open(os.path.join(repo, "f"), "a") as f:
+                f.write("b\n")
+            r = gitscan.inspect(repo, True)
+            self.assertFalse(os.path.exists(mark))
+            self.assertEqual((r["modified"], r["error"]), (1, ""))
+            self.assertIn("filter.x.clean=", gitscan.safe_opts(gitscan.local_keys(repo)))
+            run("config", "credential.helper", evil)
+            self.assertEqual(gitscan.inspect(repo, True)["error"], "fetch skipped: repo config")
+            self.assertFalse(os.path.exists(mark))
+
 
 if __name__ == "__main__":
     unittest.main()

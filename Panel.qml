@@ -78,7 +78,7 @@ Panel {
     resultText = ""
     mergeOpen = false
     pendingMerge = ""
-    actProc.command = ["/usr/bin/python3", "-I", actionPath, action, r.path].concat(arg !== undefined ? [arg] : [])
+    actProc.command = ["/usr/bin/python3", "-I", actionPath, action, r.path].concat(arg !== undefined ? arg : [])
     actProc.running = true
   }
 
@@ -587,7 +587,7 @@ Panel {
                 bordered: true
                 foreground: root.foreground
                 fontFamily: root.fontFamily
-                onClicked: root.act("merge", root.selected, root.pendingMerge)
+                onClicked: root.act("merge", root.selected, [root.pendingMerge, root.selected.branch])
               }
               Button {
                 text: root.tr("cancel")

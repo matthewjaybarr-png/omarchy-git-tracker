@@ -58,7 +58,7 @@ class Actions(unittest.TestCase):
         gitaction.run("commit", self.repo, "feature work")
         sh(self.repo, "checkout", "-q", "main")
         self.assertIn("feature", gitscan.inspect(self.repo, False)["branches"])
-        ok, out = gitaction.run("merge", self.repo, "feature")
+        ok, out = gitaction.run("merge", self.repo, "feature", "main")
         self.assertTrue(ok, out)
         self.assertTrue(os.path.exists(os.path.join(self.repo, "c")))
 
@@ -71,7 +71,7 @@ class Actions(unittest.TestCase):
         sh(self.repo, "checkout", "-q", "main")
         self.write("a", "main")
         gitaction.run("commit", self.repo, "main")
-        ok, _ = gitaction.run("merge", self.repo, "side")
+        ok, _ = gitaction.run("merge", self.repo, "side", "main")
         self.assertFalse(ok)
         state = gitscan.inspect(self.repo, False)
         self.assertTrue(state["merging"])
@@ -84,7 +84,16 @@ class Actions(unittest.TestCase):
         self.write("a")
         gitaction.run("commit", self.repo, "first")
         for bad in ["--abort", "a..b", "x;rm", ""]:
-            self.assertEqual(gitaction.run("merge", self.repo, bad), (False, "invalid branch name"))
+            self.assertEqual(gitaction.run("merge", self.repo, bad, "main"), (False, "invalid branch name"))
+
+    def test_merge_refuses_if_branch_changed(self):
+        self.write("a")
+        gitaction.run("commit", self.repo, "first")
+        sh(self.repo, "branch", "feature")
+        sh(self.repo, "checkout", "-q", "-b", "other")
+        ok, out = gitaction.run("merge", self.repo, "feature", "main")
+        self.assertFalse(ok)
+        self.assertIn("now other", out)
 
 
 if __name__ == "__main__":

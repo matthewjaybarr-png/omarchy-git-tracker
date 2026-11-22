@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run one git action for the Git Tracker panel and print {"ok", "output"} as JSON.
 
-Usage: gitaction.py commit PATH MESSAGE | push PATH | pull PATH | merge PATH BRANCH | abort PATH
+Usage: gitaction.py commit PATH MESSAGE | push PATH | pull PATH | merge PATH BRANCH INTO | abort PATH
 """
 import json
 import os
@@ -23,7 +23,7 @@ def valid_branch(name):
     return bool(BRANCH_RE.match(name)) and not name.startswith("-") and ".." not in name
 
 
-def run(action, path, arg=""):
+def run(action, path, arg="", into=""):
     if not os.path.isdir(os.path.join(path, ".git")) and not os.path.isfile(os.path.join(path, ".git")):
         return False, "not a git repository"
     if action == "commit":
@@ -49,8 +49,13 @@ def run(action, path, arg=""):
     if action == "pull":
         return git(path, "pull", "--no-edit")
     if action == "merge":
-        if not valid_branch(arg):
+        if not valid_branch(arg) or not valid_branch(into):
             return False, "invalid branch name"
+        # The user confirmed "merge arg into <into>"; refuse if another tool switched branches since.
+        ok, current = git(path, "symbolic-ref", "--short", "HEAD")
+        if not ok or current != into:
+            return False, "the checked-out branch is now %s, not %s. Refresh and try again." % (
+                current if ok else "detached HEAD", into)
         return git(path, "merge", "--no-edit", arg)
     if action == "abort":
         return git(path, "merge", "--abort")
@@ -85,7 +90,7 @@ def main(argv):
         print(json.dumps({"ok": False, "output": __doc__.strip()}))
         return 2
     try:
-        ok, out = run(argv[0], os.path.abspath(argv[1]), argv[2] if len(argv) > 2 else "")
+        ok, out = run(argv[0], os.path.abspath(argv[1]), *argv[2:4])
     except subprocess.TimeoutExpired:
         ok, out = False, "timed out"
     out = out[-1200:] if ok else with_hint(out[-1200:])
