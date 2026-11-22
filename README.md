@@ -8,6 +8,8 @@ It works with your **local** git, so any host works: GitHub, GitLab, Codeberg, G
 Forgejo, Bitbucket, a self-hosted server, or no remote at all. Push and pull use the
 remotes and credentials you already have set up. There's no account or token to set up.
 
+![Git Tracker panel: repo list with status badges, filters, and the commit / push / pull / merge card](preview.png)
+
 ## Install
 
 ```bash
