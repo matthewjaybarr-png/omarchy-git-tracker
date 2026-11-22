@@ -21,6 +21,14 @@ omarchy bar put matthewjaybarr.git-tracker --section left
 Plugins land disabled so you can read the code first. Requires `git` and `python3` (both
 ship with Omarchy). `lazygit` is optional.
 
+To remove it:
+
+```bash
+omarchy plugin remove matthewjaybarr.git-tracker
+```
+
+Your repos are not touched, and the plugin keeps no data of its own.
+
 ## Using it
 
 The bar icon shows how many repos need attention. Click it to open the panel.
