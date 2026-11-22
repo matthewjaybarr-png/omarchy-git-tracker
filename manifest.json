@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "matthewjaybarr.git-tracker",
+  "name": "Git Tracker",
+  "version": "1.0.0",
+  "author": "Matt Barr",
+  "license": "MIT",
+  "description": "Every local git repo in one panel, found automatically: what needs committing, pushing or pulling, with commit, push, pull and merge buttons. Works with any git host: GitHub, GitLab, Codeberg, Gitea, self-hosted.",
+  "homepage": "https://github.com/matthewjaybarr-png/omarchy-git-tracker",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Git Tracker",
+    "description": "Finds the git repos in your folders and shows which need a commit, push or pull. Commit, push, pull and merge from the panel; open a repo on its host, in a terminal or in lazygit. Right-click rescans, middle-click checks remotes.",
+    "category": "Development",
+    "aliases": ["git", "repos", "projects", "commit", "push", "pull"],
+    "allowMultiple": false,
+    "defaultSection": "left",
+    "defaults": {
+      "roots": "~",
+      "exclude": "",
+      "depth": 4,
+      "refreshIntervalSec": 300,
+      "autoFetch": false,
+      "fetchIntervalSec": 1800
+    },
+    "schema": [
+      { "key": "roots", "type": "string", "label": "Folders to scan (comma separated)", "defaultValue": "~" },
+      { "key": "exclude", "type": "string", "label": "Folders to skip (comma separated)", "defaultValue": "" },
+      { "key": "depth", "type": "integer", "label": "How many folders deep to look", "min": 1, "max": 8, "step": 1, "defaultValue": 4 },
+      { "key": "refreshIntervalSec", "type": "integer", "label": "Rescan local repos every (seconds)", "min": 30, "max": 3600, "step": 30, "defaultValue": 300 },
+      { "key": "autoFetch", "type": "boolean", "label": "Check remotes for new commits in the background (uses the network)", "defaultValue": false },
+      { "key": "fetchIntervalSec", "type": "integer", "label": "Background remote check every (seconds)", "min": 300, "max": 86400, "step": 300, "defaultValue": 1800 }
+    ]
+  }
+}
