@@ -94,38 +94,47 @@ def parse_status(text):
 
 # Local repo config can name programs that git runs on its own. A downloaded or restored
 # working copy is not trusted, so automatic scans switch those off and never run hooks.
-SAFE_OPTS = ["-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
-             "-c", "log.showSignature=false"]
+SAFE_CONFIG = [("core.fsmonitor", "false"), ("core.hooksPath", "/dev/null"), ("log.showSignature", "false")]
 # Local keys that make `git fetch` run a program (env GIT_SSH_COMMAND already overrides core.sshCommand).
 FETCH_RISK_RE = re.compile(r"^(core\.gitproxy|core\.askpass|credential\..*|remote\..*\.(uploadpack|receivepack)"
-                           r"|protocol\..*|url\..*)$")
+                           r"|protocol\..*|url\..*)$", re.S)
 ENV = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0", "GIT_ASKPASS": "",
        "SSH_ASKPASS": "", "GIT_SSH_COMMAND": "ssh -o BatchMode=yes"}
 
 
 def local_keys(path):
-    """Keys set by the repo's own config (local and worktree scope). Reading config runs nothing."""
+    """Keys set by the repo's own config (local and worktree scope, includes too); None if unreadable.
+
+    Git prints section and variable names lowercased but keeps the subsection (e.g. a filter
+    driver's name) exactly as written, so keys are used as-is: lowercasing would miss drivers.
+    """
     r = subprocess.run(["git", "-C", path, "config", "--list", "--show-scope", "-z"],
                        capture_output=True, text=True, timeout=15, env=ENV)
+    if r.returncode != 0:
+        return None
     parts = r.stdout.split("\0")  # scope NUL key LF value NUL ...
-    return [entry.split("\n", 1)[0].lower() for scope, entry in zip(parts[::2], parts[1::2])
+    return [entry.split("\n", 1)[0] for scope, entry in zip(parts[::2], parts[1::2])
             if scope in ("local", "worktree")]
 
 
-def safe_opts(keys):
-    """SAFE_OPTS plus switching off every filter driver the repo defines for itself."""
-    opts = list(SAFE_OPTS)
+def safe_env(keys):
+    """ENV plus overrides that switch off fsmonitor, hooks, signature checks and every filter
+    driver the repo defines for itself. Passed as GIT_CONFIG_KEY_n/VALUE_n, not `-c`, so a
+    driver name containing `=` or other odd characters is still matched exactly."""
+    config = list(SAFE_CONFIG)
     names = {k[len("filter."):k.rindex(".")] for k in keys if k.startswith("filter.") and k.count(".") >= 2}
     for name in sorted(names):
-        for part in ("clean", "smudge", "process"):
-            opts += ["-c", "filter.%s.%s=" % (name, part)]
-        opts += ["-c", "filter.%s.required=false" % name]
-    return opts
+        config += [("filter.%s.%s" % (name, part), "") for part in ("clean", "smudge", "process")]
+        config.append(("filter.%s.required" % name, "false"))
+    env = {k: v for k, v in ENV.items() if not k.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))}
+    env["GIT_CONFIG_COUNT"] = str(len(config))
+    for i, (key, value) in enumerate(config):
+        env["GIT_CONFIG_KEY_%d" % i], env["GIT_CONFIG_VALUE_%d" % i] = key, value
+    return env
 
 
-def git(path, opts, *args, timeout=15):
-    r = subprocess.run(["git", *opts, "-C", path, *args], capture_output=True, text=True,
-                       timeout=timeout, env=ENV)
+def git(path, env, *args, timeout=15):
+    r = subprocess.run(["git", "-C", path, *args], capture_output=True, text=True, timeout=timeout, env=env)
     return r.stdout if r.returncode == 0 else ""
 
 
@@ -137,25 +146,28 @@ def inspect(path, fetch):
     try:
         fetchFailed = False
         keys = local_keys(path)
-        opts = safe_opts(keys)
+        if keys is None:  # fail closed: never run status in a repo whose config we couldn't read
+            repo["error"] = "unreadable config"
+            return repo
+        env = safe_env(keys)
         if fetch:
             if any(FETCH_RISK_RE.match(k) for k in keys):
                 fetchFailed = "fetch skipped: repo config"
-            elif subprocess.run(["git", *opts, "-C", path, "fetch", "--quiet", "--prune", "--no-recurse-submodules"],
-                                capture_output=True, timeout=30, env=ENV).returncode != 0:
+            elif subprocess.run(["git", "-C", path, "fetch", "--quiet", "--prune", "--no-recurse-submodules"],
+                                capture_output=True, timeout=30, env=env).returncode != 0:
                 fetchFailed = "fetch failed"
-        repo.update(parse_status(git(path, opts, "status", "--porcelain=v2", "--branch", "--ignore-submodules=all")))
-        log = git(path, opts, "log", "-1", "--format=%ct%x09%s").strip().split("\t", 1)
+        repo.update(parse_status(git(path, env, "status", "--porcelain=v2", "--branch", "--ignore-submodules=all")))
+        log = git(path, env, "log", "-1", "--format=%ct%x09%s").strip().split("\t", 1)
         repo["lastCommit"] = int(log[0]) if log[0].isdigit() else 0
         repo["subject"] = clip(log[1] if len(log) > 1 else "")
-        repo["stashes"] = len(git(path, opts, "stash", "list").splitlines())
-        heads = git(path, opts, "for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads").split()
+        repo["stashes"] = len(git(path, env, "stash", "list").splitlines())
+        heads = git(path, env, "for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads").split()
         repo["branches"] = [clip(b, 80) for b in heads if b != repo["branch"]][:30]
-        repo["merging"] = bool(git(path, opts, "rev-parse", "-q", "--verify", "MERGE_HEAD").strip())
-        remote = git(path, opts, "remote", "get-url", "origin").strip()
+        repo["merging"] = bool(git(path, env, "rev-parse", "-q", "--verify", "MERGE_HEAD").strip())
+        remote = git(path, env, "remote", "get-url", "origin").strip()
         if not remote:
-            remotes = git(path, opts, "remote").split()
-            remote = git(path, opts, "remote", "get-url", remotes[0]).strip() if remotes else ""
+            remotes = git(path, env, "remote").split()
+            remote = git(path, env, "remote", "get-url", remotes[0]).strip() if remotes else ""
         repo["hasRemote"] = bool(remote)
         repo["url"] = web_url(remote)
         if fetchFailed:

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "matthewjaybarr.git-tracker",
   "name": "Git Tracker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "Matt Barr",
   "license": "MIT",
   "description": "Every local git repo in one panel, found automatically: what needs committing, pushing or pulling, with commit, push, pull and merge buttons. Works with any git host: GitHub, GitLab, Codeberg, Gitea, self-hosted.",

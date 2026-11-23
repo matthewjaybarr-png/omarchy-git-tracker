@@ -71,19 +71,29 @@ class Scan(unittest.TestCase):
             run("config", "core.fsmonitor", evil)
             run("config", "log.showSignature", "true")
             run("config", "gpg.program", evil)
-            run("config", "filter.x.clean", evil)
+            # Mixed case and "=" in driver names: subsections are case-sensitive and `-c` splits on "=".
+            run("config", "filter.MyDrv.clean", evil)
+            run("config", "filter.a=b.clean", evil)
             hook = os.path.join(repo, ".git", "hooks", "reference-transaction")
             with open(hook, "w") as f:
                 f.write("#!/bin/sh\n%s\n" % evil)
             os.chmod(hook, 0o755)
-            with open(os.path.join(repo, ".gitattributes"), "w") as f:
-                f.write("f filter=x\n")
-            with open(os.path.join(repo, "f"), "a") as f:
-                f.write("b\n")
+            with open(os.path.join(repo, ".git", "info", "attributes"), "w") as f:
+                f.write("f filter=MyDrv\ng filter=a=b\n")
+            index = os.path.join(repo, ".git", "index")
+            # An index older than the file makes the entry racily clean, so git hashes f through its clean filter.
+            os.utime(index, (946684800, 946684800))
+            subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", repo, "status"], capture_output=True, env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"})
+            self.assertTrue(os.path.exists(mark), "trap should fire without the scanner's overrides")
+            os.remove(mark)
+            os.utime(index, (946684800, 946684800))
             r = gitscan.inspect(repo, True)
             self.assertFalse(os.path.exists(mark))
-            self.assertEqual((r["modified"], r["error"]), (1, ""))
-            self.assertIn("filter.x.clean=", gitscan.safe_opts(gitscan.local_keys(repo)))
+            self.assertEqual((r["modified"], r["branch"], r["error"]), (0, "main", ""))
+            env = gitscan.safe_env(gitscan.local_keys(repo))
+            pairs = {(env["GIT_CONFIG_KEY_%d" % i], env["GIT_CONFIG_VALUE_%d" % i])
+                     for i in range(int(env["GIT_CONFIG_COUNT"]))}
+            self.assertTrue({("filter.MyDrv.clean", ""), ("filter.a=b.clean", "")} <= pairs)
             run("config", "credential.helper", evil)
             self.assertEqual(gitscan.inspect(repo, True)["error"], "fetch skipped: repo config")
             self.assertFalse(os.path.exists(mark))
