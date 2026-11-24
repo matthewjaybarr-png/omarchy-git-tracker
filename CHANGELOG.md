@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+
+- Hide a repo from the panel with the eye button or `h`. It's added to the "Folders to skip"
+  setting, so removing it there brings the repo back.
+
 ## 1.0.2
 
 - Filter drivers with mixed-case names (or `=` in the name) are now switched off during scans too.

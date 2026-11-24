@@ -33,6 +33,7 @@
   "action.open": "Open on the web (double-click / Enter)",
   "action.terminal": "Open a terminal here (t)",
   "action.lazygit": "Open in lazygit (g)",
+  "action.hide": "Hide this repo (h). Bring it back by removing it from Folders to skip in settings",
   "merging": "merge in progress",
   "commit": "Commit",
   "commitPlaceholder": "Commit message: stages all changes  ( c )",
@@ -62,5 +63,5 @@
   "failed": "Something went wrong",
   "tooltip": "Git: {attention} of {repos} repos need attention",
   "tooltipClean": "Git: all {repos} repos up to date",
-  "hint": "↑↓ select · c commit · p push · u pull · m merge · t terminal · g lazygit"
+  "hint": "↑↓ select · c commit · p push · u pull · m merge · t terminal · g lazygit · h hide"
 }

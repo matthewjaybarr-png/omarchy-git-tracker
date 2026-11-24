@@ -48,6 +48,8 @@ Right-click rescans and middle-click checks the remotes.
     commit from the card, or press **Abort merge**.
 - **Open** a repo on its host (double-click or Enter), in a terminal (`t`), in lazygit
   (`g`), or in your file manager (`o`).
+- **Hide** a repo you're done with (the eye button or `h`). It's added to **Folders to
+  skip**; remove it from that setting to bring it back.
 
 When an action fails, the card shows git's message and a plain-English hint, such as
 "pull first, then push" or "your SSH key isn't set up for this host".
@@ -60,6 +62,7 @@ When an action fails, the card shows git's message and a plain-English hint, suc
 | u | pull | m | merge |
 | t | terminal | g | lazygit |
 | r | rescan | f | check remotes |
+| o | file manager | h | hide repo |
 
 ## Settings
 

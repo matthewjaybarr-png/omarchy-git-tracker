@@ -118,6 +118,12 @@ Panel {
     Util.execArgv(["setsid", "uwsm-app", "--", "xdg-terminal-exec", "--dir=" + r.path].concat(cmd || []))
     root.close()
   }
+  // Add the repo to the "exclude" setting so it stops showing; undo it in the plugin's settings.
+  function hideRepo(r) {
+    if (!r || /[,\n]/.test(r.path)) return  // shortcut: exclude is comma separated, so such paths can't be hidden
+    Util.execArgv(["omarchy", "bar", "set", "matthewjaybarr.git-tracker", "exclude", excludes.concat([r.path]).join(", ")])
+    repos = repos.filter(function(x) { return x.path !== r.path })
+  }
   function openFiles(r) {
     if (!r) return
     Util.execArgv(["xdg-open", r.path])
@@ -253,6 +259,7 @@ Panel {
         else if (t === "t") root.openTerminal(root.selected)
         else if (t === "g") root.openTerminal(root.selected, ["lazygit"])
         else if (t === "o") root.openFiles(root.selected)
+        else if (t === "h") root.hideRepo(root.selected)
         else if (t === "/") search.forceActiveFocus()
         else if (t === "c" && root.canCommit) commitField.forceActiveFocus()
         else if (t === "p" && root.canPush) root.act("push", root.selected)
@@ -718,6 +725,14 @@ Panel {
         }
       }
 
+      PanelActionButton {
+        id: hideBtn
+        iconText: "\udb80\ude09"
+        tooltipText: root.tr("action.hide")
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        onClicked: root.hideRepo(row.repo)
+      }
       PanelActionButton {
         id: webBtn
         visible: Model.safeUrl(row.repo.url) !== ""
