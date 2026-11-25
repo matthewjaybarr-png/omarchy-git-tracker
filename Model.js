@@ -83,16 +83,47 @@ function splitPaths(value) {
   return String(value || "").split(/[,\n]/).map(function(s) { return s.trim() }).filter(function(s) { return s !== "" })
 }
 
-// Nerd Font glyph for the remote's host; any other host gets a generic globe.
-function hostIcon(url) {
-  var u = String(url || "")
-  if (/^https:\/\/github\.com\//.test(u)) return "\uf09b"
-  if (/^https:\/\/gitlab\./.test(u)) return "\uf296"
-  if (/^https:\/\/bitbucket\.org\//.test(u)) return "\uf171"
-  return "\udb81\udd9f"
-}
+// Nerd Font glyph for the remote's site type (from the scanner); unknown hosts get a generic globe.
+var FORGE_ICONS = { github: "\uf09b", gitlab: "\uf296", bitbucket: "\uf171", gitea: "\uf1d3" }
+function hostIcon(forge) { return FORGE_ICONS[forge] || "\udb81\udd9f" }
 
 // Only https links reach the browser.
 function safeUrl(url) {
-  return /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/[A-Za-z0-9._~\/-]+$/.test(String(url || "")) ? url : ""
+  return /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/[A-Za-z0-9._~\/-]+(\?[A-Za-z0-9._~\/=&%-]*)?$/.test(String(url || "")) ? url : ""
+}
+
+// Where each site keeps a branch, a new pull request and a commit, under the repo's page.
+var PATHS = {
+  github: { branch: "/tree/{b}", pr: "/compare/{b}?expand=1", commit: "/commit/{s}" },
+  gitlab: { branch: "/-/tree/{b}", pr: "/-/merge_requests/new?merge_request%5Bsource_branch%5D={b}", commit: "/-/commit/{s}" },
+  gitea: { branch: "/src/branch/{b}", pr: "/compare/{d}...{b}", commit: "/commit/{s}" },
+  bitbucket: { branch: "/branch/{b}", pr: "/pull-requests/new?source={b}", commit: "/commits/{s}" }
+}
+var BRANCH_SAFE = /^[A-Za-z0-9._\/-]+$/
+
+// The remote the card links to: the one named, else the scanner's first (the preferred one).
+function pickRemote(r, name) {
+  var rs = (r && r.remotes) || []
+  for (var i = 0; i < rs.length; i++) if (rs[i].name === name) return rs[i]
+  return rs[0] || null
+}
+
+// Links into a remote's site as [{key, url}]: the repo page, then the current branch,
+// a new pull request for it, and the last commit, as far as the remote has them.
+function links(r, remote) {
+  if (!r || !remote || !safeUrl(remote.url)) return []
+  var out = [{ key: "repo", url: remote.url }]
+  var p = PATHS[remote.forge], b = r.branch || "", d = remote.defaultBranch || ""
+  if (!p || !remote.pushed || !BRANCH_SAFE.test(b)) return out
+  function fill(t) { return remote.url + t.replace("{b}", b).replace("{d}", d).replace("{s}", r.head || "") }
+  out.push({ key: "branch", url: fill(p.branch) })
+  var isDefault = d ? b === d : (b === "main" || b === "master")
+  if (!isDefault && (p.pr.indexOf("{d}") === -1 || BRANCH_SAFE.test(d))) out.push({ key: "pr", url: fill(p.pr) })
+  if (remote.synced && /^[0-9a-f]{7,64}$/.test(r.head || "")) out.push({ key: "commit", url: fill(p.commit) })
+  return out.filter(function(l) { return safeUrl(l.url) !== "" })
+}
+
+// The add-remote field's starting text: the template from settings with {name} filled in.
+function remoteFromTemplate(template, name) {
+  return String(template || "").split("{name}").join(String(name || ""))
 }

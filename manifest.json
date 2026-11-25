@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "matthewjaybarr.git-tracker",
   "name": "Git Tracker",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "Matt Barr",
   "license": "MIT",
   "description": "Every local git repo in one panel, found automatically: what needs committing, pushing or pulling, with commit, push, pull and merge buttons. Works with any git host: GitHub, GitLab, Codeberg, Gitea, self-hosted.",
@@ -13,7 +13,7 @@
   },
   "barWidget": {
     "displayName": "Git Tracker",
-    "description": "Finds the git repos in your folders and shows which need a commit, push or pull. Commit, push, pull and merge from the panel; open a repo on its host, in a terminal or in lazygit. Right-click rescans, middle-click checks remotes.",
+    "description": "Finds the git repos in your folders and shows which need a commit, push or pull. Commit, push, pull and merge from the panel; open a repo, its branch, a new pull request or the last commit on its host; add a remote to a local-only repo; open it in a terminal or in lazygit. Right-click rescans, middle-click checks remotes.",
     "category": "Development",
     "aliases": ["git", "repos", "projects", "commit", "push", "pull"],
     "allowMultiple": false,
@@ -24,7 +24,10 @@
       "depth": 4,
       "refreshIntervalSec": 300,
       "autoFetch": false,
-      "fetchIntervalSec": 1800
+      "fetchIntervalSec": 1800,
+      "linkRemote": "origin",
+      "hosts": "",
+      "remoteTemplate": ""
     },
     "schema": [
       { "key": "roots", "type": "string", "label": "Folders to scan (comma separated)", "defaultValue": "~" },
@@ -32,7 +35,10 @@
       { "key": "depth", "type": "integer", "label": "How many folders deep to look", "min": 1, "max": 8, "step": 1, "defaultValue": 4 },
       { "key": "refreshIntervalSec", "type": "integer", "label": "Rescan local repos every (seconds)", "min": 30, "max": 3600, "step": 30, "defaultValue": 300 },
       { "key": "autoFetch", "type": "boolean", "label": "Check remotes for new commits in the background (uses the network)", "defaultValue": false },
-      { "key": "fetchIntervalSec", "type": "integer", "label": "Background remote check every (seconds)", "min": 300, "max": 86400, "step": 300, "defaultValue": 1800 }
+      { "key": "fetchIntervalSec", "type": "integer", "label": "Background remote check every (seconds)", "min": 300, "max": 86400, "step": 300, "defaultValue": 1800 },
+      { "key": "linkRemote", "type": "string", "label": "Remote whose site links open (when a repo has several)", "defaultValue": "origin" },
+      { "key": "hosts", "type": "string", "label": "Web host overrides, comma separated: ssh-host=web-host and/or a site type (github, gitlab, gitea, forgejo, bitbucket), e.g. git.corp=gitlab.corp.com gitlab", "defaultValue": "" },
+      { "key": "remoteTemplate", "type": "string", "label": "Remote for local-only repos, {name} is the folder name, e.g. git@codeberg.org:you/{name}.git", "defaultValue": "" }
     ]
   }
 }

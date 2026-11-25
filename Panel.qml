@@ -32,6 +32,9 @@ Panel {
   readonly property int refreshIntervalSec: Math.max(30, setting("refreshIntervalSec", 300))
   readonly property bool autoFetch: setting("autoFetch", false)
   readonly property int fetchIntervalSec: Math.max(300, setting("fetchIntervalSec", 1800))
+  readonly property string linkRemote: String(setting("linkRemote", "origin") || "origin")
+  readonly property var hostOverrides: Model.splitPaths(setting("hosts", ""))
+  readonly property string remoteTemplate: String(setting("remoteTemplate", "") || "")
   readonly property string scriptPath: decodeURIComponent(String(Qt.resolvedUrl("gitscan.py")).replace(/^file:\/\//, ""))
   readonly property string actionPath: decodeURIComponent(String(Qt.resolvedUrl("gitaction.py")).replace(/^file:\/\//, ""))
 
@@ -68,7 +71,16 @@ Panel {
   property bool resultOk: true
   property bool mergeOpen: false
   property string pendingMerge: ""
-  onSelectedChanged: { mergeOpen = false; pendingMerge = "" }
+  // The remote whose site the card's links go to; the remote buttons switch it.
+  property string cardRemoteName: ""
+  readonly property var cardRemote: Model.pickRemote(selected, cardRemoteName)
+  readonly property var cardLinks: Model.links(selected, cardRemote)
+  onSelectedChanged: {
+    mergeOpen = false
+    pendingMerge = ""
+    cardRemoteName = ""
+    remoteField.text = selected ? Model.remoteFromTemplate(remoteTemplate, selected.name) : ""
+  }
 
   function act(action, r, arg) {
     if (!r || acting) return
@@ -89,6 +101,8 @@ Panel {
     if (scanProc.running) { if (fetch) pendingFetch = true; return }
     var args = ["/usr/bin/python3", "-I", scriptPath, "--depth", String(depth)]
     if (fetch) args.push("--fetch")
+    args.push("--remote", linkRemote)
+    for (var h = 0; h < hostOverrides.length; h++) args.push("--host", hostOverrides[h])
     for (var i = 0; i < excludes.length; i++) args.push("--exclude", excludes[i])
     scanProc.command = args.concat(roots)
     scanning = true
@@ -110,8 +124,13 @@ Panel {
 
   function openWeb(r) {
     var url = r ? Model.safeUrl(r.url) : ""
-    if (url) { Util.execArgv(["omarchy-launch-browser", url]); root.close() }
+    if (url) openUrl(url)
     else if (r) openTerminal(r)
+  }
+  function openUrl(url) {
+    if (!Model.safeUrl(url)) return
+    Util.execArgv(["omarchy-launch-browser", url])
+    root.close()
   }
   function openTerminal(r, cmd) {
     if (!r) return
@@ -242,7 +261,7 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
       // While searching, the field owns every key; its own handlers below cover Esc/Enter/arrows.
-      blocked: search.activeFocus || commitField.activeFocus
+      blocked: search.activeFocus || commitField.activeFocus || remoteField.activeFocus
       onMoveRequested: function(dx, dy) {
         if (dy !== 0) root.moveCursor(dy)
         else if (dx !== 0) root.cycleFilter(dx)
@@ -461,6 +480,73 @@ Panel {
                 color: root.urgent
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.caption
+              }
+            }
+
+            // Remotes to link to (only when there's a choice), then links into the chosen site.
+            Flow {
+              Layout.fillWidth: true
+              visible: root.cardLinks.length > 0 || ((root.selected && root.selected.remotes) || []).length > 1
+              spacing: Style.space(6)
+              Repeater {
+                model: root.selected && (root.selected.remotes || []).length > 1 ? root.selected.remotes : []
+                Button {
+                  required property var modelData
+                  text: modelData.name
+                  iconText: Model.hostIcon(modelData.forge)
+                  bordered: true
+                  selected: !!root.cardRemote && root.cardRemote.name === modelData.name
+                  enabled: Model.safeUrl(modelData.url) !== ""
+                  opacity: enabled ? 1 : 0.45
+                  fontSize: Style.font.bodySmall
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                  tooltipText: root.tr("remoteTip", { name: modelData.name })
+                  onClicked: root.cardRemoteName = modelData.name
+                }
+              }
+              Repeater {
+                model: root.cardLinks
+                Button {
+                  required property var modelData
+                  text: root.tr("link." + modelData.key)
+                  iconText: modelData.key === "repo" ? Model.hostIcon(root.cardRemote ? root.cardRemote.forge : "")
+                    : modelData.key === "branch" ? "\ue725" : modelData.key === "pr" ? "\uf407" : "\uf417"
+                  fontSize: Style.font.bodySmall
+                  foreground: root.foreground
+                  fontFamily: root.fontFamily
+                  tooltipText: modelData.url
+                  onClicked: root.openUrl(modelData.url)
+                }
+              }
+            }
+
+            // A local-only repo: add a remote (prefilled from the template setting), then push.
+            RowLayout {
+              Layout.fillWidth: true
+              visible: !!root.selected && !root.selected.hasRemote
+              spacing: Style.space(6)
+              TextField {
+                id: remoteField
+                Layout.fillWidth: true
+                enabled: !root.acting
+                placeholderText: root.tr("remotePlaceholder")
+                foreground: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+                onAccepted: if (text.trim() !== "") root.act("remote", root.selected, text.trim())
+                Keys.onEscapePressed: function(event) { keyCatcher.forceActiveFocus(); event.accepted = true }
+              }
+              Button {
+                text: root.tr("addRemote")
+                iconText: "\uf0c1"
+                bordered: true
+                enabled: !root.acting && remoteField.text.trim() !== ""
+                opacity: enabled ? 1 : 0.45
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+                tooltipText: root.tr("addRemoteTip")
+                onClicked: root.act("remote", root.selected, remoteField.text.trim())
               }
             }
 
@@ -736,7 +822,7 @@ Panel {
       PanelActionButton {
         id: webBtn
         visible: Model.safeUrl(row.repo.url) !== ""
-        iconText: Model.hostIcon(row.repo.url)
+        iconText: Model.hostIcon(row.repo.forge)
         tooltipText: root.tr("action.open")
         foreground: root.foreground
         fontFamily: root.fontFamily

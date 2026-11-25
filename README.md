@@ -48,6 +48,14 @@ Right-click rescans and middle-click checks the remotes.
     commit from the card, or press **Abort merge**.
 - **Open** a repo on its host (double-click or Enter), in a terminal (`t`), in lazygit
   (`g`), or in your file manager (`o`).
+- **Links into the site**: the action card has buttons for the repo, the current branch, a new
+  pull request for it, and the last commit. Each one appears only if the remote has it, so the
+  branch must be pushed, and the commit link needs your last commit pushed too. This works on
+  GitHub, GitLab, Gitea/Forgejo/Codeberg and Bitbucket. For other hosts only the repo link
+  shows. If the repo has several remotes (say a GitHub mirror of a Codeberg repo), pick which
+  one the links go to.
+- **Add a remote** to a local-only repo: type its address (or set a template, below) and press
+  Add remote, then Push to publish the branch.
 - **Hide** a repo you're done with (the eye button or `h`). It's added to **Folders to
   skip**; remove it from that setting to bring it back.
 
@@ -76,6 +84,9 @@ Open the widget's settings in the bar editor.
 | Rescan every | 300 s | Local only, no network. |
 | Check remotes in the background | off | Runs `git fetch` on every repo. Off by default because it uses the network. |
 | Background check every | 1800 s | |
+| Remote whose site links open | `origin` | Used when a repo has more than one remote. |
+| Web host overrides | (none) | `ssh-host=web-host`, a site type, or both, e.g. `git.corp=gitlab.corp.com gitlab, code.me.net=forgejo`. SSH aliases from `~/.ssh/config` are resolved on their own. |
+| Remote for local-only repos | (none) | Prefills Add remote. `{name}` becomes the folder name, e.g. `git@codeberg.org:you/{name}.git`. |
 
 ## Privacy and safety
 
@@ -89,6 +100,8 @@ Open the widget's settings in the bar editor.
   checks and hooks are switched off, and submodules aren't entered. A background fetch skips
   repos whose own config sets credential helpers, proxies, URL rewrites or transport programs.
 - A merge checks that the branch you confirmed is still checked out before it runs.
+- Add remote only accepts `https://`, `ssh://` and `user@host:path` addresses, and only on a
+  repo that has no remote yet.
 - No force push, no reset, no rebase. The most destructive button is Abort merge.
 
 ## Limits

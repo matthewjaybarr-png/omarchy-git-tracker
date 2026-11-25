@@ -95,6 +95,19 @@ class Actions(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("now other", out)
 
+    def test_add_remote(self):
+        local = os.path.join(self.tmp.name, "local")
+        subprocess.run(["git", "init", "-q", local], check=True)
+        for bad in ["ext::sh -c touch% /tmp/x", "--upload-pack=x", "/home/me/repo.git", "file:///etc",
+                    "git@host:../../x", "git@-oProxyCommand=x:r", "https://h/r with space"]:
+            self.assertFalse(gitaction.run("remote", local, bad)[0], bad)
+        ok, out = gitaction.run("remote", local, "git@codeberg.org:me/local.git")
+        self.assertTrue(ok, out)
+        self.assertEqual(gitscan.inspect(local, False)["url"], "https://codeberg.org/me/local")
+        self.assertEqual(gitaction.run("remote", local, "https://github.com/me/local.git"),
+                         (False, "this repo already has a remote"))
+        self.assertTrue(gitaction.run("remote", os.path.join(self.tmp.name, "nope"), "https://github.com/a/b")[0] is False)
+
 
 if __name__ == "__main__":
     unittest.main()

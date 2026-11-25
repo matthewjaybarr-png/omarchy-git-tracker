@@ -21,7 +21,25 @@ class WebUrl(unittest.TestCase):
             "git@github.com:../../etc": "",
         }
         for remote, want in cases.items():
-            self.assertEqual(gitscan.web_url(remote), want, remote)
+            self.assertEqual(gitscan.web_url(remote)[0], want, remote)
+
+    def test_aliases_and_overrides(self):
+        hosts = gitscan.parse_hosts(["git.corp=gitlab.corp.com gitlab", "code.me.net=forgejo", "x=-evil"])
+        self.assertEqual(hosts["x"], ("", ""))
+        alias = {"github-work": "github.com"}.get
+        resolve = lambda h: alias(h, h)
+        cases = {
+            "git@github-work:me/r.git": ("https://github.com/me/r", "github"),
+            "git@git.corp:grp/r.git": ("https://gitlab.corp.com/grp/r", "gitlab"),
+            "https://code.me.net/me/r": ("https://code.me.net/me/r", "gitea"),
+            "https://codeberg.org/me/r": ("https://codeberg.org/me/r", "gitea"),
+            "https://git.example.org/me/r": ("https://git.example.org/me/r", ""),
+            "git@-oProxyCommand=x:me/r": ("", ""),
+        }
+        for remote, want in cases.items():
+            self.assertEqual(gitscan.web_url(remote, hosts, resolve), want, remote)
+        # https remotes name the real web host already; aliases only exist for ssh.
+        self.assertEqual(gitscan.web_url("https://github-work/me/r", {}, resolve)[0], "https://github-work/me/r")
 
 
 class Status(unittest.TestCase):
@@ -50,8 +68,14 @@ class Scan(unittest.TestCase):
             self.assertEqual(gitscan.find_repos(d, 4, {os.path.join(d, "a")}), [])
             r = gitscan.inspect(repo, False)
             self.assertEqual((r["name"], r["branch"], r["untracked"], r["subject"]), ("proj", "main", 1, "first"))
-            self.assertEqual(r["url"], "https://github.com/me/proj")
+            self.assertEqual((r["url"], r["forge"]), ("https://github.com/me/proj", "github"))
             self.assertTrue(r["hasRemote"])
+            run("remote", "add", "codeberg", "https://codeberg.org/me/proj.git")
+            run("update-ref", "refs/remotes/codeberg/main", "HEAD")
+            r = gitscan.inspect(repo, False, "codeberg")
+            self.assertEqual([x["name"] for x in r["remotes"]], ["codeberg", "origin"])
+            self.assertEqual((r["forge"], r["remotes"][0]["pushed"], r["remotes"][0]["synced"]), ("gitea", True, True))
+            self.assertEqual((r["remotes"][1]["pushed"], r["remotes"][1]["synced"]), (False, False))
 
     def test_repo_config_runs_nothing(self):
         """A copied-in repo's own config, filters and hooks must not run during a scan or fetch."""

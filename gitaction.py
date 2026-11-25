@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run one git action for the Git Tracker panel and print {"ok", "output"} as JSON.
 
-Usage: gitaction.py commit PATH MESSAGE | push PATH | pull PATH | merge PATH BRANCH INTO | abort PATH
+Usage: gitaction.py commit PATH MESSAGE | push PATH | pull PATH | merge PATH BRANCH INTO | remote PATH URL | abort PATH
 """
 import json
 import os
@@ -10,6 +10,11 @@ import subprocess
 import sys
 
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/+-]+$")
+# https://host/path, ssh://user@host[:port]/path or user@host:path. Nothing else: other forms
+# (ext::, file paths, options) could make git run a program or touch local files.
+REMOTE_RE = re.compile(r"^(?:https://[A-Za-z0-9.-]+(?::\d+)?/[A-Za-z0-9._~/-]+"
+                       r"|ssh://[A-Za-z0-9._-]+@[A-Za-z0-9][A-Za-z0-9.-]*(?::\d+)?/[A-Za-z0-9._~/-]+"
+                       r"|[A-Za-z0-9._-]+@[A-Za-z0-9][A-Za-z0-9.-]*:[A-Za-z0-9._~][A-Za-z0-9._~/-]*)$")
 ENV = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_SSH_COMMAND": "ssh -o BatchMode=yes",
        "GIT_EDITOR": "true", "GIT_MERGE_AUTOEDIT": "no"}
 
@@ -57,6 +62,14 @@ def run(action, path, arg="", into=""):
             return False, "the checked-out branch is now %s, not %s. Refresh and try again." % (
                 current if ok else "detached HEAD", into)
         return git(path, "merge", "--no-edit", arg)
+    if action == "remote":
+        url = arg.strip()
+        if not REMOTE_RE.match(url) or ".." in url:
+            return False, "use an https://… or git@host:owner/repo.git address"
+        ok, names = git(path, "remote")
+        if not ok or names.split():
+            return False, "this repo already has a remote"
+        return git(path, "remote", "add", "origin", url)
     if action == "abort":
         return git(path, "merge", "--abort")
     return False, "unknown action"
