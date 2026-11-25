@@ -8,7 +8,7 @@ It works with your **local** git, so any host works: GitHub, GitLab, Codeberg, G
 Forgejo, Bitbucket, a self-hosted server, or no remote at all. Push and pull use the
 remotes and credentials you already have set up. There's no account or token to set up.
 
-![Git Tracker panel: repo list with status badges, filters, and the commit / push / pull / merge card](preview.png)
+![Git Tracker panel: repo list with status badges, filters, and the action card with site links, remote picker, and commit / push / pull / merge](preview.png)
 
 ## Install
 
@@ -118,5 +118,13 @@ python3 -m unittest discover -s tests
 node tests/model.test.mjs
 omarchy plugin validate .
 ```
+
+## Marketplace submissions
+
+Each release is verified by the [Omarchy plugin marketplace](https://plugins.omarchy.org) before it reaches `main`.
+
+| Version | Commit | Submission | Status |
+|---|---|---|---|
+| 1.2.0 | [`6653df8`](https://github.com/matthewjaybarr-png/omarchy-git-tracker/commit/6653df85af8dba82321f5766f995def3cb5da604) | [omacom/omarchy-plugin-marketplace#15922](https://github.com/omacom/omarchy-plugin-marketplace/issues/15922) | Validated, awaiting maintainer approval |
 
 MIT licensed.
